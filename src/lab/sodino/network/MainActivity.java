@@ -1,27 +1,22 @@
 package lab.sodino.network;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.UnknownHostException;
+import java.io.File;
 
 import lab.sodino.util.DownloadInfo;
 import lab.sodino.util.LogOut;
 import lab.sodino.util.NetworkUtil;
+import lab.sodino.util.StringUtil;
 import android.app.Activity;
-import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 public class MainActivity extends Activity {
+
+	public static final String SAVE_FOLDER_PATH = Environment.getExternalStorageDirectory() + File.separator + "net_save" + File.separator;
+	
 	public static final int CLEAR_TEXT = 0;
 	public static final int APPEND_TEXT = 1;
 	private TextView txtInfo;
@@ -56,7 +51,6 @@ public class MainActivity extends Activity {
 	}
 	/**
 	 * @param domain
-	 *            指定的域名如(www.google.com)或IP地址。
 	 */
 	private void doPing(final String domain) {
 		new Thread() {
@@ -75,8 +69,9 @@ public class MainActivity extends Activity {
 				String url = "http://imgcache.qq.com/ac/www_tencent/en-us/images/sitelogo_en-us.gif";
 				DownloadInfo info = new DownloadInfo();
 				info.urlOriginal = url;
+				info.file = new File(SAVE_FOLDER_PATH + StringUtil.getSubffixNameByUrl(info.urlOriginal));
 				info.dataAction = DownloadInfo.ACTION_SAVE;
-				
+
 				NetworkUtil.download(MainActivity.this, info);
 				LogOut.out(this, "info.result=" + info.resultCode);
 			}

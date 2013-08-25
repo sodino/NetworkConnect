@@ -1,28 +1,30 @@
 package lab.sodino.util;
 
+import java.io.File;
+
 public class DownloadInfo {
-	public static final int ACTION_NONE = 0;
-	/**Êı¾İÖ±½Ó¶Áµ½ÄÚ´æ¡£<br/>*/
+	/**æ•°æ®ç›´æ¥è¯»åˆ°å†…å­˜ã€‚<br/>*/
 	public static final int ACTION_READ = 1;
-	/**Êı¾İÖ±½Ó´æµ½±¾µØ¡£<br/>*/
+	/**æ•°æ®ç›´æ¥å­˜åˆ°æœ¬åœ°ã€‚<br/>*/
 	public static final int ACTION_SAVE = 2;
-	
-	/**¼ÇÂ¼Ô­Ê¼µÄurl¡£*/
+
+	/**è®°å½•åŸå§‹çš„urlã€‚*/
 	public String urlOriginal;
-	/**±êÊ¶µ±Ç°µÄÈÎÎñ¡£*/
+	/**æ ‡è¯†å½“å‰çš„ä»»åŠ¡ã€‚*/
 	public int task;
-	/**µ±Ç°Á´½ÓµÄ½á¹û¡£*/
+	/**å½“å‰é“¾æ¥çš„ç»“æœã€‚*/
 	public int resultCode;
-	
-	/**´æ´¢Ö±½ÓÏÂÔØÊ±»ñÈ¡µ½µÄÊı¾İ¡£<br/>
-	 * ÓÃÓÚ¶ÌÊı¾İ¡£<br/>*/
+
+	/**å­˜å‚¨ç›´æ¥ä¸‹è½½æ—¶è·å–åˆ°çš„æ•°æ®ã€‚<br/>
+	 * ç”¨äºçŸ­æ•°æ®ã€‚<br/>*/
 	public byte[] data;
 	/**
 	 * @see ACTION_READ
 	 * @see ACTION_SAVE
 	 * */
-	public int dataAction;
-	
-	/**¼ÇÂ¼ÏÂÔØ¹ı³ÌÖĞ·¢ÉúµÄÒì³£ÏêÇé¡£*/
+	public int dataAction = ACTION_SAVE;
+	/**ç”¨äºè®°å½•å½“å‰ä¸‹è½½æ“ä½œæ‰€è¦ä¿å­˜çš„æœ¬åœ°è·¯å¾„ã€‚*/
+	public File file;
+	/**è®°å½•ä¸‹è½½è¿‡ç¨‹ä¸­å‘ç”Ÿçš„å¼‚å¸¸è¯¦æƒ…ã€‚*/
 	public String errorDetail;
 }

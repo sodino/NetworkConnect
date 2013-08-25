@@ -1,6 +1,8 @@
 package lab.sodino.util;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -15,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.http.HttpStatus;
 import org.apache.http.NoHttpResponseException;
 import org.apache.http.conn.ConnectTimeoutException;
 
@@ -25,100 +28,99 @@ import android.net.Proxy;
 import android.os.Environment;
 
 public class NetworkUtil {
-	public static final String SAVE_FOLDER_PATH = Environment.getExternalStorageDirectory() + File.separator + "net_save" + File.separator;
 	public static final int MAX_RETRY_COUNT = 2;
-	
+
 	public static final int DOWNLOAD_SUCCESS		 	= 0;
-	/**ÍøÂçÁ´½Ó²»¿ÉÓÃ*/
+	/**ç½‘ç»œé“¾æ¥ä¸å¯ç”¨*/
 	public static final int DOWNLOAD_NETWORK_UNUSABLE = 1;
-	/**urlÁ´½Ó³ö´í£¬¿ÉÄÜÊÇÔ­ÓĞµÄurl³ö´íÒà¿ÉÄÜÊÇÌæ»»ipºóÒıÆğ¡£*/
+	/**urlé“¾æ¥å‡ºé”™ï¼Œå¯èƒ½æ˜¯åŸæœ‰çš„urlå‡ºé”™äº¦å¯èƒ½æ˜¯æ›¿æ¢ipåå¼•èµ·ã€‚*/
 	public static final int DOWNLOAD_URL_STRING_ILLEGAL = 2;
-	/**Á´½ÓÁ¬½Ó³¬Ê±*/
+	/**é“¾æ¥è¿æ¥è¶…æ—¶*/
 	public static final int DOWNLOAD_HTTP_CONNECT_TIMEOUT = 3;
-	/**Á´½Ó¶ÁÈ¡³¬Ê±*/
+	/**é“¾æ¥è¯»å–è¶…æ—¶*/
 	public static final int DOWNLOAD_HTTP_SO_TIMEOUT = 4;
-	/**µ±Ö±½ÓÒÔip·ÃÎÊÊ±£¬¿ÉÄÜ×ª»»µÄip²»¿ÉÓÃ£¬ÒªÊ¶±ğÕâ¸ö¿Ó¡£*/
+	/**å½“ç›´æ¥ä»¥ipè®¿é—®æ—¶ï¼Œå¯èƒ½è½¬æ¢çš„ipä¸å¯ç”¨ï¼Œè¦è¯†åˆ«è¿™ä¸ªå‘ã€‚*/
 	public static final int DOWNLOAD_UNKNOWN_HOST = 5;
-	/**ÏÂÔØ¹ı³ÌÖĞÁ´½ÓÒì³£¡£*/
+	/**ä¸‹è½½è¿‡ç¨‹ä¸­é“¾æ¥å¼‚å¸¸ã€‚*/
 	public static final int DOWNLOAD_SOCKET_EXCEPTION = 6;
-	/**·µ»ØÁ´½Ó²»ÊÇHTTP_RESPONSE_OK:200*/
+	/**è¿”å›é“¾æ¥ä¸æ˜¯HTTP_RESPONSE_OK:200*/
 	public static final int DOWNLOAD_URL_RESP_NO_OK = 7;
-	/**Êı¾İ¶ÁÈ¡²»Æ¥Åä¡£ÎªÔÚ·ÇÓÃ»§È¡ÏûµÄÇé¿öÏÂÉÙ¶ÁÁË¡£*/
+	/**æ•°æ®è¯»å–ä¸åŒ¹é…ã€‚ä¸ºåœ¨éç”¨æˆ·å–æ¶ˆçš„æƒ…å†µä¸‹å°‘è¯»äº†ã€‚*/
 	public static final int DOWNLOAD_DATA_LOSSY = 8;
-	/**´æÎÄ¼şÊ±Ê§°Ü¡£*/
+	/**å­˜æ–‡ä»¶æ—¶å¤±è´¥ã€‚*/
 	public static final int DOWNLOAD_SAVE_FILE_FAIL = 9;
 	public static final int DOWNLOAD_USER_CANCEL = 10;
-	/**ËùÓĞÎ´Ã÷È·µÄÏÂÔØÒì³£¡£*/
+	/**æ‰€æœ‰æœªæ˜ç¡®çš„ä¸‹è½½å¼‚å¸¸ã€‚*/
 	public static final int DOWNLOAD_EXCEPTION = 11;
 
-	/**¼ÇÂ¼×îºóÊ¹ÓÃµÄÒÆ¶¯Íø¹ØÃû³Æ¡£<br/>
-	 * µ±ÊÖ»úµ±Ç°¿ÉÓÃµÄÒÆ¶¯Íø¹ØÓë¼ÇÂ¼²»Ò»ÑùÊ±£¬Ôòµ±Ç°µÄÁ´½ÓÇëÇó±ØĞëÇĞµ½ÒÆ¶¯Íø¹ØÀ´¡£<br/>
-	 * ÓëÒÆ¶¯Íø¹ØÏà¹Ø¡£<br/>
+	/**è®°å½•æœ€åä½¿ç”¨çš„ç§»åŠ¨ç½‘å…³åç§°ã€‚<br/>
+	 * å½“æ‰‹æœºå½“å‰å¯ç”¨çš„ç§»åŠ¨ç½‘å…³ä¸è®°å½•ä¸ä¸€æ ·æ—¶ï¼Œåˆ™å½“å‰çš„é“¾æ¥è¯·æ±‚å¿…é¡»åˆ‡åˆ°ç§»åŠ¨ç½‘å…³æ¥ã€‚<br/>
+	 * ä¸ç§»åŠ¨ç½‘å…³ç›¸å…³ã€‚<br/>
 	 * */
 	public static String lastApn;
 	/**
-	 * ÔÚÓĞÒÆ¶¯Íø¹ØµÄÇé¿öÏÂ£¬±êÊ¶ÊÇ·ñÖ±½Óurl.openConnection()£¬ÒòÎªÈç¹ûÉÏÒ»´ÎÊ¹ÓÃÍø¹ØÊ§°ÜÁË£¬ÔòÖØÊÔÊ±ÔòÖ±½ÓÁ¬½Ó¡£<br/>
-	 * ÓëÒÆ¶¯Íø¹ØÏà¹Ø¡£<br/>*/
+	 * åœ¨æœ‰ç§»åŠ¨ç½‘å…³çš„æƒ…å†µä¸‹ï¼Œæ ‡è¯†æ˜¯å¦ç›´æ¥url.openConnection()ï¼Œå› ä¸ºå¦‚æœä¸Šä¸€æ¬¡ä½¿ç”¨ç½‘å…³å¤±è´¥äº†ï¼Œåˆ™é‡è¯•æ—¶åˆ™ç›´æ¥è¿æ¥ã€‚<br/>
+	 * ä¸ç§»åŠ¨ç½‘å…³ç›¸å…³ã€‚<br/>*/
 	public static boolean forceDirect;
-	
+
 	public static void download(Context context, DownloadInfo info){
 		info.resultCode = DOWNLOAD_EXCEPTION;
 		File fileSaveTmp = null;
-		
-		// ---->Ô¤²Ù×÷:Ä¿Â¼¼ì²é
+
+		// ---->é¢„æ“ä½œ:ç›®å½•æ£€æŸ¥
 		if (DownloadInfo.ACTION_SAVE == info.dataAction) {
-			// ĞèÒª±¾µØ´æ´¢²Ù×÷£¬½øĞĞÄ¿Â¼Ô¤´¦Àí
-			fileSaveTmp = new File(SAVE_FOLDER_PATH + StringUtil.getSubffixNameByUrl(info.urlOriginal) +".tmp");
+			// éœ€è¦æœ¬åœ°å­˜å‚¨æ“ä½œï¼Œè¿›è¡Œç›®å½•é¢„å¤„ç†
+			fileSaveTmp = new File(info.file.getAbsolutePath() +".tmp");
 			File parentFolder = fileSaveTmp.getParentFile();
 			if (parentFolder != null && parentFolder.exists() == false) {
 				parentFolder.mkdirs();
 			}
-			// ÁÙÊ±ÎÄ¼şµÄ´¦Àí
+			// ä¸´æ—¶æ–‡ä»¶çš„å¤„ç†
 			if(fileSaveTmp.exists()){
 				fileSaveTmp.delete();
 			}
 		}
-		
-		
-		int tryCount = 0;	// ÖØÊÔ¼ÆÊı£¬³õÊ¼Îª0
+
+
+		int tryCount = 0;	// é‡è¯•è®¡æ•°ï¼Œåˆå§‹ä¸º0
 		boolean need2try = true;
-		boolean doneConnect = false; // ÊÇ·ñÖ´ĞĞhttpURLConnection.connect()
-		boolean useProxy = false; // ÊÇ·ñÊ¹ÓÃÁË´úÀí
-		
-		// ------>>>>>>>>¿ªÊ¼´¦ÀíÍøÂçÁ¬½Ó
+		boolean doneConnect = false; // æ˜¯å¦æ‰§è¡ŒhttpURLConnection.connect()
+		boolean useProxy = false; // æ˜¯å¦ä½¿ç”¨äº†ä»£ç†
+
+		// ------>>>>>>>>å¼€å§‹å¤„ç†ç½‘ç»œè¿æ¥
 		OutputStream os = null;
 		InputStream is = null;
 		HttpURLConnection httpConn = null;
-		
+
 		Object waitTimeObj = new Object();
 		do {
 			doneConnect = useProxy = false;
 			try{
 				String urlString = info.urlOriginal;
-				// ------>>>>>>>>ÍøÂçÓĞÎŞÅĞ¶Ï£¬ÒòÎªÈç¹ûÊ§°ÜÖØÊÔÊÇ5sÒÔºóµÄÊÂÁË£¬Õâ¶ÎÊ±¼äÄÚ¿ÉÄÜÍøÂçÒÑ¾­Ã»ÁË£¬²»ĞèÒªÔÙÖØÊÔÁË
+				// ------>>>>>>>>ç½‘ç»œæœ‰æ— åˆ¤æ–­ï¼Œå› ä¸ºå¦‚æœå¤±è´¥é‡è¯•æ˜¯5sä»¥åçš„äº‹äº†ï¼Œè¿™æ®µæ—¶é—´å†…å¯èƒ½ç½‘ç»œå·²ç»æ²¡äº†ï¼Œä¸éœ€è¦å†é‡è¯•äº†
 				NetworkInfo activeNetworkInfo = ((ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
 				if (activeNetworkInfo == null) {
-					LogOut.out(NetworkUtil.class, "Download failed-----------activeNetworkInfo is null");
+					LogOut.out(NetworkUtil.class.getName(), "Download failed-----------activeNetworkInfo is null");
 					info.resultCode = DOWNLOAD_NETWORK_UNUSABLE;
 					return;
 				}
-				// ------>>>>>>>>´úÀíµÄÔ¤´¦Àí
+				// ------>>>>>>>>ä»£ç†çš„é¢„å¤„ç†
 				int type = -1;
 				String exrea = null;
 				if(activeNetworkInfo!=null){
 					type = activeNetworkInfo.getType();
-					// ·µ»ØÈç£º3gwap 3gnet cmwap µÄapnÃû³Æ
+					// è¿”å›å¦‚ï¼š3gwap 3gnet cmwap çš„apnåç§°
 					exrea = activeNetworkInfo.getExtraInfo();
 				}
 				String apnType = APNUtil.getApnType(exrea);
 				if(apnType.equals(lastApn) == false){
-					// Ê¹ÓÃĞÂµÄapnÁË£¬ĞèÒª³¢ÊÔ¸Ãproxy
+					// ä½¿ç”¨æ–°çš„apnäº†ï¼Œéœ€è¦å°è¯•è¯¥proxy
 					forceDirect = false;
 					lastApn = apnType;
 				}
 				String defaultHost = Proxy.getDefaultHost();
 				int defaultPort = Proxy.getDefaultPort();
-				if((type == ConnectivityManager.TYPE_MOBILE || type == ConnectivityManager.TYPE_MOBILE+50)// +50Ö»ÎªÁËºÍHttpCommunicator±£³ÖÒ»ÖÂ£¬¾ßÌåÒâÒå..ÄÇ±ßÒ²²»ÖªµÀÁË
+				if((type == ConnectivityManager.TYPE_MOBILE || type == ConnectivityManager.TYPE_MOBILE+50)// +50åªä¸ºäº†å’ŒHttpCommunicatorä¿æŒä¸€è‡´ï¼Œå…·ä½“æ„ä¹‰..é‚£è¾¹ä¹Ÿä¸çŸ¥é“äº†
 						&& defaultHost != null && defaultPort > 0 // 
 						&& forceDirect == false
 						){
@@ -127,34 +129,34 @@ public class NetworkUtil {
 							apnType.equals(APNUtil.APN_TYPE_UNIWAP) || 
 							apnType.equals(APNUtil.APN_TYPE_3GWAP)) {
 							httpConn = APNUtil.getConnectionWithXOnlineHost(urlString, defaultHost, defaultPort);
-						} else if (apnType.equals(APNUtil.APN_TYPE_CTWAP)) { // ctwap×ßdefault proxy
+						} else if (apnType.equals(APNUtil.APN_TYPE_CTWAP)) { // ctwapèµ°default proxy
 							httpConn = APNUtil.getConnectionWithDefaultProxy(urlString, defaultHost, defaultPort);
-						} else { // ÕÕÔ­ÏÈµÄÂß¼­,netÇé¿öÏÂÈÔÈ»ÓĞdefault proxyµÄ»°£¬»¹ÊÇ×ßdefault proxy
+						} else { // ç…§åŸå…ˆçš„é€»è¾‘,netæƒ…å†µä¸‹ä»ç„¶æœ‰default proxyçš„è¯ï¼Œè¿˜æ˜¯èµ°default proxy
 							httpConn = APNUtil.getConnectionWithDefaultProxy(urlString, defaultHost, defaultPort);
 						}
-					} else { //Ä³Ğ©»úĞÍextra»áÓĞnullÇé¿ö ²¢ÇÒÓĞ´úÀí
+					} else { //æŸäº›æœºå‹extraä¼šæœ‰nullæƒ…å†µ å¹¶ä¸”æœ‰ä»£ç†
 						httpConn = APNUtil.getConnectionWithDefaultProxy(urlString, defaultHost, defaultPort);
 					}
 					useProxy = true;
-				} else { // ·Çmobile»òÕßÃ»ÓĞÄ¬ÈÏ´úÀíµØÖ·µÄÇé¿öÏÂ£¬²»×ßproxy
+				} else { // émobileæˆ–è€…æ²¡æœ‰é»˜è®¤ä»£ç†åœ°å€çš„æƒ…å†µä¸‹ï¼Œä¸èµ°proxy
 					URL hostUrl = new URL(urlString);
 					httpConn = (HttpURLConnection) hostUrl.openConnection();
 					useProxy = false;
 				}
-				LogOut.out(NetworkUtil.class, "forceDirect:"+forceDirect+" useProxy:"+ useProxy +" apnType:" + apnType +" defaultHost:" + defaultHost +" defaltPort:" + defaultPort +" url:" + urlString);
-				// Èç¹û²»ÉèÖÃÕâ¼Ò»ï£¬·µ»ØµÄcontent-lengthÆ«Ğ¡..
+				LogOut.out(NetworkUtil.class.getName(), "forceDirect:"+forceDirect+" useProxy:"+ useProxy +" apnType:" + apnType +" defaultHost:" + defaultHost +" defaltPort:" + defaultPort +" url:" + urlString);
+				// å¦‚æœä¸è®¾ç½®è¿™å®¶ä¼™ï¼Œè¿”å›çš„content-lengthåå°..
 				httpConn.setRequestProperty("Accept-Encoding", "identity");
 				httpConn.setConnectTimeout(1000*30);
 				httpConn.setReadTimeout(1000*30);
-				//wapµÄ302Ìø×ª±ØĞë×Ô¼º´¦Àí£¬ÖØĞÂ¿ª¸öconnection£¬ÒÔÇ°ÄÇ¸ö·ÏÆú£¬ÒòÎªhttpÍ·µÄX-Online-Host±ØĞëÖØĞÂÉèÖÃ
-				//±ê×¼µÄHttpUrlConnection²»»áÖØĞÂÉèÖÃX-Online_HostµÄ
-				// ±¾¶Î´úÂë²»»á×Ô¼º´¦Àí£¬¶¼ĞèÒªÖ±½ÓÁ¬½Ó
+				//wapçš„302è·³è½¬å¿…é¡»è‡ªå·±å¤„ç†ï¼Œé‡æ–°å¼€ä¸ªconnectionï¼Œä»¥å‰é‚£ä¸ªåºŸå¼ƒï¼Œå› ä¸ºhttpå¤´çš„X-Online-Hostå¿…é¡»é‡æ–°è®¾ç½®
+				//æ ‡å‡†çš„HttpUrlConnectionä¸ä¼šé‡æ–°è®¾ç½®X-Online_Hostçš„
+				// æœ¬æ®µä»£ç ä¸ä¼šè‡ªå·±å¤„ç†ï¼Œéƒ½éœ€è¦ç›´æ¥è¿æ¥
 				httpConn.setInstanceFollowRedirects(true);
-				// ------>>>>>>>>¿ªÊ¼´¦Àí¶ÁÈ¡
+				// ------>>>>>>>>å¼€å§‹å¤„ç†è¯»å–
 				info.resultCode = DOWNLOAD_EXCEPTION;
 				httpConn.connect();
 				doneConnect = true;
-				
+
 				/////////////////////////////////////////////////////////////////////////
 				Map<String,List<String>> mapTest = httpConn.getHeaderFields();
 				if(mapTest != null){
@@ -172,15 +174,60 @@ public class NetworkUtil {
 						}
 						headLine += "key["+key + "]value["+valueLine+"] ";
 					}
-					LogOut.out(NetworkUtil.class, "header " + headLine);
+					LogOut.out(NetworkUtil.class.getName(), "header " + headLine);
 				}
 				/////////////////////////////////////////////////////////////////////////
 				
-				
+				int respCode = httpConn.getResponseCode();
+				int contentLength = httpConn.getContentLength();
+				if(respCode == HttpStatus.SC_OK){
+					is = httpConn.getInputStream();
+					if(info.dataAction == DownloadInfo.ACTION_READ){
+						os = new ByteArrayOutputStream();
+					} else if(info.dataAction == DownloadInfo.ACTION_SAVE){
+						os = new FileOutputStream(fileSaveTmp);
+					}
+					
+					byte[]data = new byte[2048];
+					int count = -1;
+					int read = 0;
+					
+					while((count = is.read(data)) > -1){
+						os.write(data, 0, count);
+						read += count;
+						LogOut.out(NetworkUtil.class.getName(), "download all:" + contentLength + " read:" + read +" url:" + urlString);
+					}
+					
+					if(read != contentLength){
+						info.resultCode = DOWNLOAD_DATA_LOSSY;
+						fileSaveTmp.delete();
+						LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_DATA_LOSSY result=" + info.resultCode +" url:" + urlString);
+						return;
+					} else {
+						if(info.dataAction == DownloadInfo.ACTION_READ){
+							info.data = ((ByteArrayOutputStream)os).toByteArray();
+							info.resultCode = DOWNLOAD_SUCCESS;
+							LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_SUCCESS result=" + info.resultCode +" url:" + urlString);
+						}else if(info.dataAction == DownloadInfo.ACTION_SAVE){
+							boolean bool = fileSaveTmp.renameTo(info.file);
+							if(bool){
+								info.resultCode = DOWNLOAD_SUCCESS;
+								LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_SUCCESS result=" + info.resultCode +" url:" + urlString);
+							}else{
+								info.resultCode = DOWNLOAD_SAVE_FILE_FAIL;
+								LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_SAVE_FILE_FAIL result=" + info.resultCode +" url:" + urlString);
+							}
+						}
+					}
+					
+				} else {
+					info.resultCode = DOWNLOAD_URL_RESP_NO_OK;
+					LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_URL_RESP_NO_OK result=" + info.resultCode + " respCode:" + respCode +" url:" + urlString);
+				}
 			}catch(Throwable t){
 				t.printStackTrace();
 				info.errorDetail = t.toString();
-				// ÓëHttpCommunicator.getConnect()±£³ÖÒ»ÖÂ£¬´¦ÀíSocketTimeoutException¡¢ConnectException
+				// ä¸HttpCommunicator.getConnect()ä¿æŒä¸€è‡´ï¼Œå¤„ç†SocketTimeoutExceptionã€ConnectException
 				boolean isProxyConnectException = false;
 				if(t instanceof MalformedURLException){
 					info.resultCode = DOWNLOAD_URL_STRING_ILLEGAL;
@@ -195,32 +242,44 @@ public class NetworkUtil {
 					info.resultCode = DOWNLOAD_SOCKET_EXCEPTION;
 					isProxyConnectException = true;
 				}else{
-					info.resultCode = DOWNLOAD_SAVE_FILE_FAIL;
+					info.resultCode = DOWNLOAD_EXCEPTION;
 				}
-				
+
 				if(doneConnect == false && isProxyConnectException){
 					if(useProxy){
-						// ±íÃ÷Ê¹ÓÃµÄproxy²¢ÇÒÔÚÖ´ĞĞhttpURLConnection.connect()Ê±·¢ÉúµÄÒì³£
-						// Ôò²»Ê¹ÓÃproxy£¬Ö±Á¬!
+						// è¡¨æ˜ä½¿ç”¨çš„proxyå¹¶ä¸”åœ¨æ‰§è¡ŒhttpURLConnection.connect()æ—¶å‘ç”Ÿçš„å¼‚å¸¸
+						// åˆ™ä¸ä½¿ç”¨proxyï¼Œç›´è¿!
 						forceDirect = true;
 					}else{
-						// Èç¹û²»Ê¹ÓÃproxyÇÒÖ±Á¬Ê§°ÜÁË,»Ö¸´µ½Ê¹ÓÃ´úÀí
+						// å¦‚æœä¸ä½¿ç”¨proxyä¸”ç›´è¿å¤±è´¥äº†,æ¢å¤åˆ°ä½¿ç”¨ä»£ç†
 						forceDirect = false;
 					}
-					
-					LogOut.out(NetworkUtil.class, "change forceDirect:"+forceDirect+" doneConnect:" + doneConnect +" isProxyConnectEx:" + isProxyConnectException+" useProxy:" + useProxy);
+
+					LogOut.out(NetworkUtil.class.getName(), "change forceDirect:"+forceDirect+" doneConnect:" + doneConnect +" isProxyConnectEx:" + isProxyConnectException+" useProxy:" + useProxy);
 				}
-				LogOut.out(NetworkUtil.class, "Download fail resultCode="+info.resultCode+". url=" + info.urlOriginal +" exception:"+t.toString());
+				LogOut.out(NetworkUtil.class.getName(), "Download fail resultCode="+info.resultCode+". url=" + info.urlOriginal +" exception:"+t.toString());
 			}finally{
-				
+				try{
+					if(os != null){
+						os.close();
+					}
+					if(is != null){
+						is.close();
+					}
+					if(httpConn != null){
+						httpConn.disconnect();
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
 			}
-			
-			
+
+
 			tryCount ++;
-			LogOut.out(NetworkUtil.class, "Download. result=" + info.resultCode + ", url=" + info.urlOriginal);
+			LogOut.out(NetworkUtil.class.getName(), "Download. result=" + info.resultCode + ", url=" + info.urlOriginal);
 			need2try = need2Try(context, info.resultCode, tryCount, MAX_RETRY_COUNT);
 			if(need2try && info.resultCode != DOWNLOAD_HTTP_CONNECT_TIMEOUT && info.resultCode != DOWNLOAD_HTTP_SO_TIMEOUT){
-				// ĞèÒªÖØÊÔÇÒ²»ÊÇÁ¬½Ó³¬Ê±µÄ´íÎó£¬²ÅµÈ¸ö5s.Á´½Ó³¬Ê±´íÎóÊ±£¬ÒÑ¾­µÈÁËÌ«¾ÃÁË£¬²»ÒªÔÙµÈ5sÁË£¬ÀË·ÑÊ±¼ä
+				// éœ€è¦é‡è¯•ä¸”ä¸æ˜¯è¿æ¥è¶…æ—¶çš„é”™è¯¯ï¼Œæ‰ç­‰ä¸ª5s.é“¾æ¥è¶…æ—¶é”™è¯¯æ—¶ï¼Œå·²ç»ç­‰äº†å¤ªä¹…äº†ï¼Œä¸è¦å†ç­‰5säº†ï¼Œæµªè´¹æ—¶é—´
 				synchronized (waitTimeObj) {
 					try {
 						waitTimeObj.wait(5000);
@@ -232,10 +291,10 @@ public class NetworkUtil {
 	}
 
 	private static boolean need2Try(Context context, int resultCode, int tryCount,int maxTry){
-		boolean bool = resultCode != DOWNLOAD_SUCCESS// ÏÂÔØ³É¹¦£¬²»ÖØÊÔ  
-				&& resultCode != DOWNLOAD_USER_CANCEL// ÓÃ»§È¡ÏûµÄ£¬²»ÖØÊÔ
+		boolean bool = resultCode != DOWNLOAD_SUCCESS// ä¸‹è½½æˆåŠŸï¼Œä¸é‡è¯•  
+				&& resultCode != DOWNLOAD_USER_CANCEL// ç”¨æˆ·å–æ¶ˆçš„ï¼Œä¸é‡è¯•
 				&& tryCount < maxTry//
-				&& isNetSupport(context);// Èç¹ûÏÂÔØ²»³É¹¦,²¢ÇÒÍøÂç¿ÉÓÃ,²ÅÖØĞÂÏÂÔØ
+				&& isNetSupport(context);// å¦‚æœä¸‹è½½ä¸æˆåŠŸ,å¹¶ä¸”ç½‘ç»œå¯ç”¨,æ‰é‡æ–°ä¸‹è½½
 		return bool;
 	}
 	public static String ping(String domain){
@@ -243,15 +302,15 @@ public class NetworkUtil {
 		InputStream is = null;
 		try {
 			line = "/nping -c 1 " + domain;
-			// -c 1:±íÊ¾pingµÄ´ÎÊıÎª1´Î¡£
+			// -c 1:è¡¨ç¤ºpingçš„æ¬¡æ•°ä¸º1æ¬¡ã€‚
 			Process p = Runtime.getRuntime().exec("ping -c 1 " + domain);
-			// µÈ´ı¸ÃÃüÁîÖ´ĞĞÍê±Ï¡£
+			// ç­‰å¾…è¯¥å‘½ä»¤æ‰§è¡Œå®Œæ¯•ã€‚
 			int status = p.waitFor();
 			if (status == 0) {
-				// Õı³£ÍË³ö
+				// æ­£å¸¸é€€å‡º
 				line += "Pass";
 			} else {
-				// Òì³£ÍË³ö
+				// å¼‚å¸¸é€€å‡º
 				line += "Fail: Host unreachable";
 			}
 			is = p.getInputStream();
@@ -267,8 +326,8 @@ public class NetworkUtil {
 		}
 		return line;
 	}
-	
-	
+
+
     public static boolean isNetSupport(Context context) {
 	    ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE); 
 		if (cm == null) {
