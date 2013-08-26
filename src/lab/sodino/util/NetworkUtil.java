@@ -25,7 +25,6 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Proxy;
-import android.os.Environment;
 
 public class NetworkUtil {
 	public static final int MAX_RETRY_COUNT = 2;
@@ -75,10 +74,6 @@ public class NetworkUtil {
 			if (parentFolder != null && parentFolder.exists() == false) {
 				parentFolder.mkdirs();
 			}
-			// 临时文件的处理
-			if(fileSaveTmp.exists()){
-				fileSaveTmp.delete();
-			}
 		}
 
 
@@ -96,6 +91,15 @@ public class NetworkUtil {
 		do {
 			doneConnect = useProxy = false;
 			try{
+				// 临时文件的处理
+				if (fileSaveTmp != null) {
+					if (fileSaveTmp.exists()) {
+						fileSaveTmp.delete();
+					}
+					// 新创建该文件，避免在new
+					// FileOutputStream()时，出现FileNotFoundException:EBUSY (Device or resource busy)
+					fileSaveTmp.createNewFile();
+				}
 				String urlString = info.urlOriginal;
 				// ------>>>>>>>>网络有无判断，因为如果失败重试是5s以后的事了，这段时间内可能网络已经没了，不需要再重试了
 				NetworkInfo activeNetworkInfo = ((ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
@@ -155,6 +159,11 @@ public class NetworkUtil {
 				// ------>>>>>>>>开始处理读取
 				info.resultCode = DOWNLOAD_EXCEPTION;
 				httpConn.connect();
+				//////////////////////////////////////////////////////////////////////////////
+//				if(tryCount == 0){
+//					throw new ConnectTimeoutException();
+//				}
+				//////////////////////////////////////////////////////////////////////////////
 				doneConnect = true;
 
 				/////////////////////////////////////////////////////////////////////////
