@@ -120,10 +120,8 @@ public class NetworkUtil {
 					return;
 				}
 				// ------>>>>>>>>代理的预处理
-				int type = -1;
 				String exrea = null;
 				if(activeNetworkInfo!=null){
-					type = activeNetworkInfo.getType();
 					// 返回如：3gwap 3gnet cmwap 的apn名称
 					exrea = activeNetworkInfo.getExtraInfo();
 				}
@@ -135,10 +133,7 @@ public class NetworkUtil {
 				}
 				String defaultHost = Proxy.getDefaultHost();
 				int defaultPort = Proxy.getDefaultPort();
-				if((type == ConnectivityManager.TYPE_MOBILE || type == ConnectivityManager.TYPE_MOBILE+50)// +50只为了和HttpCommunicator保持一致，具体意义..那边也不知道了
-						&& defaultHost != null && defaultPort > 0 // 
-						&& forceDirect == false
-						){
+				if(isMobileNetworkInfo(activeNetworkInfo) && defaultHost != null && defaultPort > 0 && forceDirect == false){
 					if(exrea != null){
 						if (apnType.equals(APNUtil.APN_TYPE_CMWAP) || 
 							apnType.equals(APNUtil.APN_TYPE_UNIWAP) || 
