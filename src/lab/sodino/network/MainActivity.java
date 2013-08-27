@@ -75,7 +75,9 @@ public class MainActivity extends Activity {
 			public void run() {
 //				String url = "http://img1.gtimg.com/visual_page/72/ab/10033.jpg";
 //				int action = DownloadInfo.ACTION_SAVE;
-				String url = "http://icon.solidot.org/js/base.js";
+//				String url = "http://icon.solidot.org/js/base.js";
+//				int action = DownloadInfo.ACTION_READ;
+				String url = "http://imgcache.qq.com/club/item/parcel/9/10019_9.json";
 				int action = DownloadInfo.ACTION_READ;
 				
 				DownloadInfo info = new DownloadInfo();

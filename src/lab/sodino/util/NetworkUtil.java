@@ -209,7 +209,9 @@ public class NetworkUtil {
 					
 					if(read != contentLength){
 						info.resultCode = DOWNLOAD_DATA_LOSSY;
-						fileSaveTmp.delete();
+						if(info.dataAction == DownloadInfo.ACTION_SAVE && fileSaveTmp != null){
+							fileSaveTmp.delete();
+						}
 						LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_DATA_LOSSY result=" + info.resultCode +" url:" + urlString);
 						return;
 					} else {

@@ -1,7 +1,74 @@
 解决3gwap联网失败：联网请求在设置代理与直连两种方式的切换
 
-碰到一个问题，UI交互表现为：在3gwap网络环境下资源一起无法下载成功。
-查看Log日志，打印出的信息为：***Timeout
+问题现象：
+	碰到一个问题，UI交互表现为：联通号码在3gwap网络环境下资源一直无法下载成功。
+	查看Log日志，打印出的信息为：ConnectTimeoutException: Connect to /10.0.0.172:80 timed out
+	
+	则问题原因是：在使用了移动网关代理后出现超时，仍无法正确联网。
 
-则问题原因是：在使用了移动网关代理后，仍无法正确联网的出错信息。
+解决办法：
+	经观察，在同样的网络环境下，发现AIO缩略图片能正常接收，跟踪其代码发现该AIO缩略图在使用移动网络联网的步骤如下(感谢issaczhang)：
+	a. 首先判断网络环境，在移动网络及使用代理的情况，则对链接设置代理，并标识使用了代理
+	b. 发起链接
+	c. 在此处catch住连接超时异常(SocketTimeoutException/ConnectException)，
+		如果发生了连接超时异常，则将此异常标识下来，尝试重新发起链接
+	d. 重新发起链接，如果在使用代理的情况下仍然发生了超时异常，则不使用代理，使用直连方式
+		(注:反映的3gwap联接失败的情况，采用代理失败了，但直连方式则正常连接成功了)
+	e. 直连方式仍发生异常，则取消直连方式，循环进入步骤a.
+		这是为了避免如果代理的设置本身是错误的，经用户修正后，保证仍可使用最新的代理联网成功。
+	f. 如果网络环境切换到了新的代理，则优先使用该代理进行步骤a的尝试。
+
+	经以上步骤，3gwap连网情况下，终于将使用直连方式时正常访问到网络资源。
+	
+	个人觉得移动网关毕竟是2G时代的特色产物，经此问题，发现网关已经慢慢在退出历史舞台，以后不使用代理直接连接应该是大势所趋了。
+	
+
+实现过程中仍遇到了几个坑，现在逐一填埋一下：
+
+1号天坑(危地马拉天坑)：设置代理方式的不同导致连接假成功，返回的内容是被跳转的网页内容。
+	默认设置代理的方式是：
+		HttpURLConnection conn;
+		java.net.Proxy proxy = new java.net.Proxy(Type.HTTP, new InetSocketAddress(defaultHost, defaultPort));
+		URL proxyURL = new URL(url);
+		conn = (HttpURLConnection) proxyURL.openConnection(proxy);
+	
+	经实践，此方式在3gwap下，连接是正常的，response_code是HTTP_OK(200)，也能正常读取内容，但这时已经陷坑里了，读取到的内容却是如下：
+		<html>
+		<head>
+		<meta http-equiv="refresh" content="0; url=http://59.151.106.150" />
+		</head>
+		<body>
+		</body>
+		</html>
+	
+	你妹呀!这是一个跳转网页，如果是浏览器的话则会观察到将会跳转到下面这个页面(见图3gwap.interrupted.web.jpg)：
+	
+	很明显，这是一个被移动运营商拦截的广告页。没节操呀！！
+	经比较AIO缩略图发现该设置代理的实现是另一种方式,设置X-Online_Host方式(感谢issaczhang):
+		HttpURLConnection conn;
+		URL hostUrl;
+		String host = null;
+		String path = null;
+		int hostIndex = "http://".length();
+		int pathIndex = url.indexOf('/', hostIndex);// url为原始的请求链接
+		if (pathIndex < 0) {
+			host = url.substring(hostIndex);
+			path = "";
+		} else {
+			host = url.substring(hostIndex, pathIndex);
+			path = url.substring(pathIndex);
+		}
+		hostUrl = new URL("http://" + defaultHost + ":" + defaultPort + path);
+		conn = (HttpURLConnection) hostUrl.openConnection();
+		conn.setRequestProperty("X-Online-Host", host);
+	
+	实践后，在3gwap联网下，使用该代理，会抛出连接超时异常，这时尝试不使用代理直接请求原始url，则正常访问到目标资源了。
+	目前HttpCommunicator在移动网络下，如果是cmwap/uniwap/3gwap，都会采用设置X-Online-Host的方式去代理连接。
+	
+2号坑(重庆奉节小寨天坑):读取头信息(content-length)数值偏小
+	经过以上的处理之后，连接成功了，但取到的头信息content-length值却偏小，异常下载成功判断失败.
+	偏小见下图content_length_lossy.png
+	
+	经实践，在设置了头信息"Accept-Encoding, "identity"，后，则content-length恢复正常。
+	此现象在访问imgcache.qq.com上面的静态资源时必现，但访问其它网站的静态资源，倒是不必现的。
 
