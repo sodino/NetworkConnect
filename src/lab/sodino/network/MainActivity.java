@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
 //				int action = DownloadInfo.ACTION_SAVE;
 //				String url = "http://icon.solidot.org/js/base.js";
 //				int action = DownloadInfo.ACTION_READ;
-				String url = "http://imgcache.qq.com/club/item/parcel/9/10019_9.json";
+				String url = "http://imgcache.qq.com/club/item/parcel/9/10019.json";
 				int action = DownloadInfo.ACTION_READ;
 				
 				DownloadInfo info = new DownloadInfo();
@@ -85,7 +85,8 @@ public class MainActivity extends Activity {
 				info.file = new File(SAVE_FOLDER_PATH + StringUtil.getSubffixNameByUrl(info.urlOriginal));
 				info.dataAction = action;
 
-				NetworkUtil.download(MainActivity.this, info);
+//				NetworkUtil.downloadByJava(MainActivity.this, info);
+				NetworkUtil.downloadByApache(MainActivity.this, info);
 				LogOut.out(this, "info.result=" + info.resultCode);
 				Message msg = handler.obtainMessage();
 				msg.what = DOWNLOAD_DONE;

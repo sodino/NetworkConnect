@@ -17,9 +17,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NoHttpResponseException;
+import org.apache.http.StatusLine;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.ConnectTimeoutException;
+import org.apache.http.conn.params.ConnRoutePNames;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.params.HttpParams;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
@@ -62,7 +73,7 @@ public class NetworkUtil {
 	 * 与移动网关相关。<br/>*/
 	public static boolean forceDirect;
 
-	public static void download(Context context, DownloadInfo info){
+	public static void downloadByJava(Context context, DownloadInfo info){
 		info.resultCode = DOWNLOAD_EXCEPTION;
 		File fileSaveTmp = null;
 
@@ -300,6 +311,250 @@ public class NetworkUtil {
 			}
 		}while(need2try);
 	}
+	public static void downloadByApache(Context context, DownloadInfo info){
+		info.resultCode = DOWNLOAD_EXCEPTION;
+		File fileSaveTmp = null;
+		
+		// ---->预操作:目录检查
+		if (DownloadInfo.ACTION_SAVE == info.dataAction) {
+			// 需要本地存储操作，进行目录预处理
+			fileSaveTmp = new File(info.file.getAbsolutePath() +".tmp");
+			File parentFolder = fileSaveTmp.getParentFile();
+			if (parentFolder != null && parentFolder.exists() == false) {
+				parentFolder.mkdirs();
+			}
+		}
+		
+		
+		int tryCount = 0;	// 重试计数，初始为0
+		boolean need2try = true;
+		boolean doneExecute = false; // 是否执行httpURLConnection.connect()
+		boolean useProxy = false; // 是否使用了代理
+		String urlString = info.urlOriginal;
+
+		URL url = null;
+		try {
+			url = new URL(urlString);
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			info.resultCode = DOWNLOAD_URL_STRING_ILLEGAL;
+			info.errorDetail = String.valueOf(e);
+			return;
+		}
+		
+		// ------>>>>>>>>开始处理网络连接
+		OutputStream os = null;
+		InputStream is = null;
+		HttpGet get = null;
+		HttpEntity entity = null;
+		try {
+			get = new HttpGet(urlString);
+		} catch (IllegalArgumentException ex) {
+			// 需要转义
+			try{
+				get = new HttpGet(urlString);
+			}catch(IllegalArgumentException e){
+				e.printStackTrace();
+				info.resultCode = DOWNLOAD_URL_STRING_ILLEGAL;
+				info.errorDetail = String.valueOf(e);
+				return ;
+			}
+		}
+		
+		Object waitTimeObj = new Object();
+		do {
+			doneExecute = useProxy = false;
+			try{
+				// 临时文件的处理
+				if (fileSaveTmp != null) {
+					if (fileSaveTmp.exists()) {
+						fileSaveTmp.delete();
+					}
+					// 新创建该文件，避免在new
+					// FileOutputStream()时，出现FileNotFoundException:EBUSY (Device or resource busy)
+					fileSaveTmp.createNewFile();
+				}
+				// ------>>>>>>>>网络有无判断，因为如果失败重试是5s以后的事了，这段时间内可能网络已经没了，不需要再重试了
+				NetworkInfo activeNetworkInfo = ((ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE)).getActiveNetworkInfo();
+				if (activeNetworkInfo == null) {
+					LogOut.out(NetworkUtil.class.getName(), "Download failed-----------activeNetworkInfo is null");
+					info.resultCode = DOWNLOAD_NETWORK_UNUSABLE;
+					return;
+				}
+				// ------>>>>>>>>代理的预处理
+				String exrea = null;
+				if(activeNetworkInfo!=null){
+					// 返回如：3gwap 3gnet cmwap 的apn名称
+					exrea = activeNetworkInfo.getExtraInfo();
+				}
+				String apnType = APNUtil.getApnType(exrea);
+				if(apnType.equals(lastApn) == false){
+					// 使用新的apn了，需要尝试该proxy
+					forceDirect = false;
+					lastApn = apnType;
+				}
+				String defaultHost = Proxy.getDefaultHost();
+				int defaultPort = Proxy.getDefaultPort();
+				boolean isMobileNetwork = isMobileNetworkInfo(activeNetworkInfo);
+				
+				HttpParams para = new BasicHttpParams();
+				para.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 1000 * 30);
+				// 增加读取数据的超时
+				para.setParameter(CoreConnectionPNames.SO_TIMEOUT, 1000 * 30);
+				int bufferSize = 0;
+				if (isMobileNetwork) {
+					bufferSize = 2048;
+				} else {
+					bufferSize = 2048 * 2;
+				}
+				para.setIntParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, bufferSize);
+				if(isMobileNetwork && defaultHost != null && defaultPort > 0 && forceDirect == false){
+					// 使用代理
+					HttpHost httpHost = new HttpHost(defaultHost, defaultPort);
+					para.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
+					useProxy = true;
+				} else {
+					// 非mobile或者没有默认代理地址的情况下，不走proxy
+					HttpHost httpHost = new HttpHost(url.getHost(), url.getPort());
+					para.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
+					get.setParams(para);
+					useProxy = false;
+				}
+				get.setParams(para);
+				
+				LogOut.out(NetworkUtil.class.getName(), "forceDirect:"+forceDirect+" useProxy:"+ useProxy +" apnType:" + apnType +" defaultHost:" + defaultHost +" defaltPort:" + defaultPort +" url:" + urlString);
+				// ------>>>>>>>>开始处理读取
+				info.resultCode = DOWNLOAD_EXCEPTION;
+				HttpResponse res = new DefaultHttpClient().execute(get);
+				//////////////////////////////////////////////////////////////////////////////
+//				if(tryCount == 0){
+//					throw new ConnectTimeoutException();
+//				}
+				//////////////////////////////////////////////////////////////////////////////
+				doneExecute = true;
+				
+				/////////////////////////////////////////////////////////////////////////
+				Header[] headers = res.getAllHeaders();
+				if(headers != null){
+					String headLine = "";
+					for(Header h : headers){
+						headLine += "k["+h.getName() +"]v["+ h.getValue() +"] ";
+					}
+					LogOut.out(NetworkUtil.class.getName(), "header " + headLine);
+				}
+				/////////////////////////////////////////////////////////////////////////
+				StatusLine statusLine = res.getStatusLine();
+				int respCode = statusLine.getStatusCode();
+				if(respCode == HttpStatus.SC_OK){
+					entity = res.getEntity();
+					long contentLength = entity.getContentLength();
+					is = entity.getContent();
+					if(info.dataAction == DownloadInfo.ACTION_READ){
+						os = new ByteArrayOutputStream();
+					} else if(info.dataAction == DownloadInfo.ACTION_SAVE){
+						os = new FileOutputStream(fileSaveTmp);
+					}
+					
+					byte[]data = new byte[2048];
+					int count = -1;
+					int read = 0;
+					
+					while((count = is.read(data)) > -1){
+						os.write(data, 0, count);
+						read += count;
+						LogOut.out(NetworkUtil.class.getName(), "download all:" + contentLength + " read:" + read +" url:" + urlString);
+					}
+					
+					if(read != contentLength){
+						info.resultCode = DOWNLOAD_DATA_LOSSY;
+						if(info.dataAction == DownloadInfo.ACTION_SAVE && fileSaveTmp != null){
+							fileSaveTmp.delete();
+						}
+						LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_DATA_LOSSY result=" + info.resultCode +" url:" + urlString);
+						return;
+					} else {
+						if(info.dataAction == DownloadInfo.ACTION_READ){
+							info.data = ((ByteArrayOutputStream)os).toByteArray();
+							info.resultCode = DOWNLOAD_SUCCESS;
+							LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_SUCCESS result=" + info.resultCode +" url:" + urlString);
+						}else if(info.dataAction == DownloadInfo.ACTION_SAVE){
+							boolean bool = fileSaveTmp.renameTo(info.file);
+							if(bool){
+								info.resultCode = DOWNLOAD_SUCCESS;
+								LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_SUCCESS result=" + info.resultCode +" url:" + urlString);
+							}else{
+								info.resultCode = DOWNLOAD_SAVE_FILE_FAIL;
+								LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_SAVE_FILE_FAIL result=" + info.resultCode +" url:" + urlString);
+							}
+						}
+					}
+					
+				} else {
+					info.resultCode = DOWNLOAD_URL_RESP_NO_OK;
+					LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_URL_RESP_NO_OK result=" + info.resultCode + " respCode:" + respCode +" url:" + urlString);
+				}
+			}catch(Throwable t){
+				t.printStackTrace();
+				info.errorDetail = t.toString();
+				// 与HttpCommunicator.getConnect()保持一致，处理SocketTimeoutException、ConnectException
+				boolean isProxyConnectException = false;
+				if(t instanceof MalformedURLException){
+					info.resultCode = DOWNLOAD_URL_STRING_ILLEGAL;
+				}else if (t instanceof UnknownHostException) {
+					info.resultCode = DOWNLOAD_UNKNOWN_HOST;
+				}else if(t instanceof NoHttpResponseException){
+					info.resultCode = DOWNLOAD_URL_RESP_NO_OK;
+				} else if (t instanceof ConnectTimeoutException || t instanceof SocketTimeoutException) {
+					info.resultCode = DOWNLOAD_HTTP_CONNECT_TIMEOUT;
+					isProxyConnectException = true;
+				}else if(t instanceof SocketException){
+					info.resultCode = DOWNLOAD_SOCKET_EXCEPTION;
+					isProxyConnectException = true;
+				}else{
+					info.resultCode = DOWNLOAD_EXCEPTION;
+				}
+				
+				if(doneExecute == false && isProxyConnectException){
+					if(useProxy){
+						// 表明使用的proxy并且在执行httpURLConnection.connect()时发生的异常
+						// 则不使用proxy，直连!
+						forceDirect = true;
+					}else{
+						// 如果不使用proxy且直连失败了,恢复到使用代理
+						forceDirect = false;
+					}
+					
+					LogOut.out(NetworkUtil.class.getName(), "change forceDirect:"+forceDirect+" doneConnect:" + doneExecute +" isProxyConnectEx:" + isProxyConnectException+" useProxy:" + useProxy);
+				}
+				LogOut.out(NetworkUtil.class.getName(), "Download fail resultCode="+info.resultCode+". url=" + info.urlOriginal +" exception:"+t.toString());
+			}finally{
+				try{
+					if(os != null){
+						os.close();
+					}
+					if(is != null){
+						is.close();
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+			}
+			
+			
+			tryCount ++;
+			LogOut.out(NetworkUtil.class.getName(), "Download. result=" + info.resultCode + ", url=" + info.urlOriginal);
+			need2try = need2Try(context, info.resultCode, tryCount, MAX_RETRY_COUNT);
+			if(need2try && info.resultCode != DOWNLOAD_HTTP_CONNECT_TIMEOUT && info.resultCode != DOWNLOAD_HTTP_SO_TIMEOUT){
+				// 需要重试且不是连接超时的错误，才等个5s.链接超时错误时，已经等了太久了，不要再等5s了，浪费时间
+				synchronized (waitTimeObj) {
+					try {
+						waitTimeObj.wait(5000);
+					} catch (InterruptedException e) {
+					}
+				}
+			}
+		}while(need2try);
+	}
 
 	private static boolean need2Try(Context context, int resultCode, int tryCount,int maxTry){
 		boolean bool = resultCode != DOWNLOAD_SUCCESS// 下载成功，不重试  
@@ -358,4 +613,17 @@ public class NetworkUtil {
 	    }
 	    return false;
     }
+    
+	/**判断此网络是否为mobile
+	 * 注：适应三星新定义的双卡双待mobile类型
+	 * @param netInfo
+	 * @return
+	 */
+	public static boolean isMobileNetworkInfo(final NetworkInfo netInfo) {
+		if(ConnectivityManager.TYPE_MOBILE == netInfo.getType() || ConnectivityManager.TYPE_MOBILE + 50 == netInfo.getType()){
+			return true;
+		}else {
+			return false;
+		}
+	}
 }
