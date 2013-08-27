@@ -23,7 +23,7 @@
 	个人觉得移动网关毕竟是2G时代的特色产物，经此问题，发现网关已经慢慢在退出历史舞台，以后不使用代理直接连接应该是大势所趋了。
 	
 
-实现过程中仍遇到了几个坑，现在逐一填埋一下：
+使用HttpURLConnection实现的过程中仍遇到了几个坑，现在逐一填埋一下：
 
 1号天坑(危地马拉天坑)：设置代理方式的不同导致连接假成功，返回的内容是被跳转的网页内容。
 	默认设置代理的方式是：
@@ -72,3 +72,12 @@
 	经实践，在设置了头信息"Accept-Encoding, "identity"，后，则content-length恢复正常。
 	此现象在访问imgcache.qq.com上面的静态资源时必现，但访问其它网站的静态资源，倒是不必现的。
 
+
+后记：
+	上述是使用HttpURLConnection时遇到的情况，但为了相比较，本人又尝试着使用HttpClient/HttpGet等Apache联网组件去实现，
+	虽然实现过程代码稍复杂一些，并未有上述的两个问题坑。
+	所以在联网过程中，两者皆宜，只是HttpURLConnection要步步小心。
+	附Apache联网组件HttpClient/HttpGet设置代理方式：
+						HttpHost httpHost = new HttpHost(defaultHost, defaultPort);
+						para.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
+						httpGet.setParams(para);

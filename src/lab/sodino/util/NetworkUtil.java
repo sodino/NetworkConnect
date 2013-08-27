@@ -340,14 +340,14 @@ public class NetworkUtil {
 		// ------>>>>>>>>开始处理网络连接
 		OutputStream os = null;
 		InputStream is = null;
-		HttpGet get = null;
+		HttpGet httpGet = null;
 		HttpEntity entity = null;
 		try {
-			get = new HttpGet(urlString);
+			httpGet = new HttpGet(urlString);
 		} catch (IllegalArgumentException ex) {
 			// 需要转义
 			try{
-				get = new HttpGet(urlString);
+				httpGet = new HttpGet(urlString);
 			}catch(IllegalArgumentException e){
 				e.printStackTrace();
 				info.resultCode = DOWNLOAD_URL_STRING_ILLEGAL;
@@ -392,35 +392,35 @@ public class NetworkUtil {
 				int defaultPort = Proxy.getDefaultPort();
 				boolean isMobileNetwork = isMobileNetworkInfo(activeNetworkInfo);
 				
-				HttpParams para = new BasicHttpParams();
-				para.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 1000 * 30);
+				HttpParams httpParams = new BasicHttpParams();
+				httpParams.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 1000 * 30);
 				// 增加读取数据的超时
-				para.setParameter(CoreConnectionPNames.SO_TIMEOUT, 1000 * 30);
+				httpParams.setParameter(CoreConnectionPNames.SO_TIMEOUT, 1000 * 30);
 				int bufferSize = 0;
 				if (isMobileNetwork) {
 					bufferSize = 2048;
 				} else {
 					bufferSize = 2048 * 2;
 				}
-				para.setIntParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, bufferSize);
+				httpParams.setIntParameter(CoreConnectionPNames.SOCKET_BUFFER_SIZE, bufferSize);
 				if(isMobileNetwork && defaultHost != null && defaultPort > 0 && forceDirect == false){
 					// 使用代理
 					HttpHost httpHost = new HttpHost(defaultHost, defaultPort);
-					para.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
+					httpParams.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
 					useProxy = true;
 				} else {
 					// 非mobile或者没有默认代理地址的情况下，不走proxy
 					HttpHost httpHost = new HttpHost(url.getHost(), url.getPort());
-					para.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
-					get.setParams(para);
+					httpParams.setParameter(ConnRoutePNames.DEFAULT_PROXY, httpHost);
+					httpGet.setParams(httpParams);
 					useProxy = false;
 				}
-				get.setParams(para);
+				httpGet.setParams(httpParams);
 				
 				LogOut.out(NetworkUtil.class.getName(), "forceDirect:"+forceDirect+" useProxy:"+ useProxy +" apnType:" + apnType +" defaultHost:" + defaultHost +" defaltPort:" + defaultPort +" url:" + urlString);
 				// ------>>>>>>>>开始处理读取
 				info.resultCode = DOWNLOAD_EXCEPTION;
-				HttpResponse res = new DefaultHttpClient().execute(get);
+				HttpResponse httpRes = new DefaultHttpClient().execute(httpGet);
 				//////////////////////////////////////////////////////////////////////////////
 //				if(tryCount == 0){
 //					throw new ConnectTimeoutException();
@@ -429,7 +429,7 @@ public class NetworkUtil {
 				doneExecute = true;
 				
 				/////////////////////////////////////////////////////////////////////////
-				Header[] headers = res.getAllHeaders();
+				Header[] headers = httpRes.getAllHeaders();
 				if(headers != null){
 					String headLine = "";
 					for(Header h : headers){
@@ -438,10 +438,10 @@ public class NetworkUtil {
 					LogOut.out(NetworkUtil.class.getName(), "header " + headLine);
 				}
 				/////////////////////////////////////////////////////////////////////////
-				StatusLine statusLine = res.getStatusLine();
-				int respCode = statusLine.getStatusCode();
-				if(respCode == HttpStatus.SC_OK){
-					entity = res.getEntity();
+				StatusLine statusLine = httpRes.getStatusLine();
+				int statuscode = statusLine.getStatusCode();
+				if(statuscode == HttpStatus.SC_OK){
+					entity = httpRes.getEntity();
 					long contentLength = entity.getContentLength();
 					is = entity.getContent();
 					if(info.dataAction == DownloadInfo.ACTION_READ){
@@ -486,7 +486,7 @@ public class NetworkUtil {
 					
 				} else {
 					info.resultCode = DOWNLOAD_URL_RESP_NO_OK;
-					LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_URL_RESP_NO_OK result=" + info.resultCode + " respCode:" + respCode +" url:" + urlString);
+					LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_URL_RESP_NO_OK result=" + info.resultCode + " respCode:" + statuscode +" url:" + urlString);
 				}
 			}catch(Throwable t){
 				t.printStackTrace();
