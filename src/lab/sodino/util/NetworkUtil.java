@@ -155,7 +155,12 @@ public class NetworkUtil {
 				}
 				LogOut.out(NetworkUtil.class.getName(), "forceDirect:"+forceDirect+" useProxy:"+ useProxy +" apnType:" + apnType +" defaultHost:" + defaultHost +" defaltPort:" + defaultPort +" url:" + urlString);
 				// 如果不设置这家伙，返回的content-length偏小..
-				httpConn.setRequestProperty("Accept-Encoding", "identity");
+				if(info.requestAcceptEncoding == null || info.requestAcceptEncoding.length() == 0){
+					httpConn.setRequestProperty("Accept-Encoding", "identity");
+				} else {
+					httpConn.setRequestProperty("Accept-Encoding", info.requestAcceptEncoding);
+				}
+				httpConn.setRequestProperty("Host", "imgcache.qq.com");
 				httpConn.setConnectTimeout(1000*30);
 				httpConn.setReadTimeout(1000*30);
 				//wap的302跳转必须自己处理，重新开个connection，以前那个废弃，因为http头的X-Online-Host必须重新设置
@@ -193,9 +198,11 @@ public class NetworkUtil {
 				}
 				/////////////////////////////////////////////////////////////////////////
 				
-				int respCode = httpConn.getResponseCode();
-				int contentLength = httpConn.getContentLength();
-				if(respCode == HttpStatus.SC_OK){
+				info.respCode = httpConn.getResponseCode();
+				info.respContentLength = httpConn.getContentLength();
+				info.respContentType = httpConn.getContentType();
+				info.respContentEncoding = httpConn.getContentEncoding();
+				if(info.respCode == HttpStatus.SC_OK){
 					is = httpConn.getInputStream();
 					if(info.dataAction == DownloadInfo.ACTION_READ){
 						os = new ByteArrayOutputStream();
@@ -210,10 +217,10 @@ public class NetworkUtil {
 					while((count = is.read(data)) > -1){
 						os.write(data, 0, count);
 						read += count;
-						LogOut.out(NetworkUtil.class.getName(), "download all:" + contentLength + " read:" + read +" url:" + urlString);
+						LogOut.out(NetworkUtil.class.getName(), "download all:" + info.respContentLength + " read:" + read +" url:" + urlString);
 					}
 					
-					if(read != contentLength){
+					if(read != info.respContentLength){
 						info.resultCode = DOWNLOAD_DATA_LOSSY;
 						if(info.dataAction == DownloadInfo.ACTION_SAVE && fileSaveTmp != null){
 							fileSaveTmp.delete();
@@ -239,7 +246,7 @@ public class NetworkUtil {
 					
 				} else {
 					info.resultCode = DOWNLOAD_URL_RESP_NO_OK;
-					LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_URL_RESP_NO_OK result=" + info.resultCode + " respCode:" + respCode +" url:" + urlString);
+					LogOut.out(NetworkUtil.class.getName(), "DOWNLOAD_URL_RESP_NO_OK result=" + info.resultCode + " respCode:" + info.respCode +" url:" + urlString);
 				}
 			}catch(Throwable t){
 				t.printStackTrace();

@@ -16,9 +16,9 @@ public class LogOut {
 	 * */
 	public static void out(Object obj, String info) {
 		if (obj instanceof String) {
-			android.util.Log.d(LOG_TAG, ((String) obj) + "->" + info);
+			android.util.Log.d(LOG_TAG, getClassNameByStackIndex(4) + "->" + info);
 		} else {
-			android.util.Log.d(LOG_TAG, obj.getClass().toString().substring(6) + "->" + info);
+			android.util.Log.d(LOG_TAG, getClassNameByStackIndex(4) + "->" + info);
 		}
 	}
 
@@ -40,9 +40,24 @@ public class LogOut {
 	 * */
 	public static void out(Object obj, String tag, String info) {
 			if (obj instanceof String) {
-				android.util.Log.d(LOG_TAG + "_" + tag, ((String) obj) + "->" + info);
+				android.util.Log.d(LOG_TAG + "_" + tag, getClassNameByStackIndex(4) + "->" + info);
 			} else {
-				android.util.Log.d(LOG_TAG + "_" + tag, obj.getClass().toString().substring(6) + "->" + info);
+				android.util.Log.d(LOG_TAG + "_" + tag, getClassNameByStackIndex(4) + "->" + info);
 			}
 	}
+
+	public static String getClassNameByStackIndex(int index) {
+		StackTraceElement[] traces = Thread.currentThread().getStackTrace();
+		if (index < 0 || index >= traces.length) {
+			return "";
+		}
+		String name = traces[index].getClassName();
+		return name;
+	}
+
+	// 打log的函数（调用这个函数的函数），是在函数栈的第5层
+	public static int e(String msg) {
+		return android.util.Log.d(LOG_TAG,getClassNameByStackIndex(4)+"->"+msg);
+	}
+
 }

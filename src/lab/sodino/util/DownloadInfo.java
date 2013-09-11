@@ -12,6 +12,17 @@ public class DownloadInfo {
 	public String urlOriginal;
 	/**标识当前的任务。*/
 	public int task;
+	/**请求的Accept-Encoding。*/
+	public String requestAcceptEncoding;
+	
+	/**返回后的content-type内容*/
+	public String respContentType;
+	/**返回后的content-encoding内容*/
+	public String respContentEncoding;
+	/**返回的response_code.*/
+	public int respCode;
+	/**返回的ContentLength.*/
+	public long respContentLength;
 	/**当前链接的结果。*/
 	public int resultCode;
 

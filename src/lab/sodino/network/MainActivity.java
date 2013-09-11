@@ -55,6 +55,8 @@ public class MainActivity extends Activity {
 		btnConnect.setOnClickListener(btnListener);
 		btnClear = (Button) findViewById(R.id.btnClear);
 		btnClear.setOnClickListener(btnListener);
+		
+		LogOut.e("test");
 	}
 	/**
 	 * @param domain
@@ -84,9 +86,10 @@ public class MainActivity extends Activity {
 				info.urlOriginal = url;
 				info.file = new File(SAVE_FOLDER_PATH + StringUtil.getSubffixNameByUrl(info.urlOriginal));
 				info.dataAction = action;
+//				info.requestAcceptEncoding = "gzip";
 
-//				NetworkUtil.downloadByJava(MainActivity.this, info);
-				NetworkUtil.downloadByApache(MainActivity.this, info);
+				NetworkUtil.downloadByJava(MainActivity.this, info);
+//				NetworkUtil.downloadByApache(MainActivity.this, info);
 				LogOut.out(this, "info.result=" + info.resultCode);
 				Message msg = handler.obtainMessage();
 				msg.what = DOWNLOAD_DONE;
